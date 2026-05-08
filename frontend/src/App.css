@@ -1,0 +1,120 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap');
+
+/* Variáveis de transição suave */
+.app-container {
+  font-family: 'Inter', sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  transition: background 1s ease; 
+  color: white;
+}
+
+/* --- TEMAS DINÂMICOS --- */
+
+.tema-padrao { background: #0f172a; }
+
+.tema-ensolarado { 
+  background: linear-gradient(180deg, #4da1ff 0%, #94c5ff 100%); 
+}
+
+.tema-chuvoso { 
+  background: linear-gradient(180deg, #373b44 0%, #4286f4 100%); 
+}
+
+.tema-nublado { 
+  background: linear-gradient(180deg, #606c88 0%, #3f4c6b 100%); 
+}
+
+/* --- CARD --- */
+
+.weather-card {
+  background: rgba(255, 255, 255, 0.15);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 40px;
+  border-radius: 35px;
+  width: 100%;
+  max-width: 350px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  text-align: center;
+}
+
+h1 {
+  font-size: 1.2rem;
+  font-weight: 400;
+  margin-bottom: 25px;
+  opacity: 0.9;
+}
+
+.search-box {
+  display: flex;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 5px;
+  border-radius: 15px;
+  margin-bottom: 30px;
+}
+
+.search-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px;
+  color: white;
+  outline: none;
+}
+
+.search-box input::placeholder { color: rgba(255, 255, 255, 0.7); }
+
+.search-box button {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+/* --- INFORMAÇÕES --- */
+
+.temp-value {
+  font-size: 5.5rem;
+  font-weight: 300; /* Estilo fino do iOS */
+  margin: 10px 0;
+  letter-spacing: -2px;
+}
+
+.condition {
+  font-size: 1.3rem;
+  font-weight: 400;
+  margin-bottom: 30px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.stat-label {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  text-transform: uppercase;
+}
+
+.stat-val {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.fade-in {
+  animation: fadeIn 1s ease forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
