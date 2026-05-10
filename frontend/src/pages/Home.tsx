@@ -9,8 +9,7 @@ export default function Home() {
  
   const cidadesSugestao = [
     'Fortaleza', 'São Paulo', 'Rio de Janeiro', 'Curitiba', 
-    'Salvador', 'Brasília', 'Belo Horizonte', 'Manaus', 
-    'Recife', 'Porto Alegre'
+    'Salvador', 'Brasília', 'Belo Horizonte', 'Manaus',
   ];
 
   const handleSearch = () => {
