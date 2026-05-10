@@ -1,35 +1,66 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, MapPin, ArrowRight } from 'lucide-react';
 
 export default function Home() {
-    const [cidade, setCidade] = useState('');
-    const navigate = useNavigate();
+  const [cidade, setCidade] = useState('');
+  const navigate = useNavigate();
 
-    const handleSearch = () => {
-        if (cidade.trim()) {
-            navigate(`/clima/${cidade}`);
-        }
-    };
+ 
+  const cidadesSugestao = [
+    'Fortaleza', 'São Paulo', 'Rio de Janeiro', 'Curitiba', 
+    'Salvador', 'Brasília', 'Belo Horizonte', 'Manaus',
+  ];
 
-    return (
-        <div className="app-container tema-padrao">
-            <div className="weather-card fade-in">
-                <h1>GeoClima</h1>
-                <p style={{ color: '#94a3b8', marginBottom: '20px' }}>Descubra o clima em qualquer cidade</p>
-                <div className="search-box">
-                    <input
-                        type="text"
-                        placeholder="Ex: Fortaleza..."
-                        value={cidade}
-                        onChange={(e) => setCidade(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                    />
-                    <button onClick={handleSearch} title="Pesquisar">
-                        <Search size={20} />
-                    </button>
+  const handleSearch = () => {
+    if (cidade.trim()) navigate(`/clima/${cidade}`);
+  };
+
+  return (
+    <div className="app-container tema-padrao">
+      <div className="home-content fade-in">
+        
+        
+        <header className="hero-section">
+          <h1>GeoClima</h1>
+          <p>Descubra o tempo em tempo real com precisão</p>
+          
+          <div className="search-box-large">
+            <input 
+              type="text" 
+              placeholder="Pesquise por uma cidade..." 
+              value={cidade}
+              onChange={(e) => setCidade(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+            />
+            <button onClick={handleSearch} className="search-btn-main">
+              <Search size={24} />
+              <span>Buscar</span>
+            </button>
+          </div>
+        </header>
+
+        {/* Grade de Cidades Rápidas */}
+        <section className="suggestions-section">
+          <h2>Cidades Populares</h2>
+          <div className="cities-grid">
+            {cidadesSugestao.map((item) => (
+              <div 
+                key={item} 
+                className="city-card"
+                onClick={() => navigate(`/clima/${item}`)}
+              >
+                <div className="city-info">
+                  <MapPin size={14} />
+                  <span>{item}</span>
                 </div>
-            </div>
-        </div>
-    );
+                <ArrowRight size={18} className="arrow-icon" />
+              </div>
+            ))}
+          </div>
+        </section>
+        
+      </div>
+    </div>
+  );
 }

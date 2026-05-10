@@ -6,131 +6,146 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Checagem da API 
-app.get('/api/v1/health', (req: Request, res: Response) => {
-    res.status(200).json({
-        status: "healthy",
-        projeto: "GeoClima",
-        timestamp: new Date().toISOString()
-    });
-});
+// Traduzir códigos da Open-Meteo
+function traduzirClima(code: number): string {
+  const mapeamento: { [key: number]: string } = {
+    0: 'Céu Limpo',
+    1: 'Predominantemente Limpo', 2: 'Parcialmente Nublado', 3: 'Nublado',
+    45: 'Nevoeiro', 48: 'Nevoeiro com Geada',
+    51: 'Drizzle Leve', 53: 'Drizzle Moderado', 55: 'Drizzle Denso',
+    61: 'Chuva Leve', 63: 'Chuva Moderada', 65: 'Chuva Forte',
+    80: 'Pancadas de Chuva Leves', 81: 'Pancadas de Chuva Moderadas', 82: 'Pancadas de Chuva Violentas',
+    95: 'Trovoada Leve', 96: 'Trovoada com Granizo',
+  };
+  return mapeamento[code] || 'Nublado';
+}
 
-// Endpoint principal pra pegar o clima de uma cidade específica
+// --- ENDPOINT 1: CLIMA DETALHADO ---
 app.get('/api/v1/clima/:cidade', async (req: Request, res: Response) => {
-    const { cidade } = req.params;
+  const cidade = req.params.cidade as string;
 
-    // Se o nome for muito curto nem adianta mandar pra API
-    if (!cidade || cidade.length < 2) {
-        return res.status(400).json({
-            erro: true,
-            codigo: "NOME_INVALIDO",
-            mensagem: "O nome da cidade deve ter pelo menos 2 caracteres"
-        });
+  if (!cidade || cidade.length < 2) {
+    return res.status(400).json({
+      erro: true,
+      codigo: "NOME_INVALIDO",
+      mensagem: "O nome da cidade deve conter pelo menos 2 caracteres",
+      nome_informado: cidade
+    });
+  }
+
+  try {
+    const geoUrl = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(cidade)}&count=1&language=pt&format=json`;
+    const { data: geoData } = await axios.get(geoUrl);
+
+    if (!geoData.results || geoData.results.length === 0) {
+      return res.status(404).json({
+        erro: true,
+        codigo: "CIDADE_NAO_ENCONTRADA",
+        mensagem: "Nenhuma cidade encontrada com o nome informado",
+        nome_informado: cidade
+      });
     }
 
-    try {
-        // Primeiro busco o código da cidade na BrasilAPI
-        const { data: buscaCidade } = await axios.get(
-            `https://brasilapi.com.br/api/cptec/v1/cidade/${encodeURIComponent(String(cidade))}`,
-            { timeout: 10000 } // timeout de 10s pra não travar a requisição
-        );
+    const { latitude, longitude, name, admin1 } = geoData.results[0];
 
-        if (!buscaCidade || buscaCidade.length === 0) {
-            throw new Error('NOT_FOUND');
-        }
+    const weatherUrl = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&timezone=auto`;
+    const { data: weatherData } = await axios.get(weatherUrl);
 
-        const cidadeId = buscaCidade[0].id;
+    res.status(200).json({
+      nome: name,
+      estado: admin1 || "S/N",
+      clima: {
+        temperatura_min: Math.round(weatherData.daily.temperature_2m_min[0]),
+        temperatura_max: Math.round(weatherData.daily.temperature_2m_max[0]),
+        condicao: traduzirClima(weatherData.current.weather_code),
+        sensacao: Math.round(weatherData.current.apparent_temperature),
+        humidade: weatherData.current.relative_humidity_2m,
+        vento: Math.round(weatherData.current.wind_speed_10m),
+        unidades: { temperatura: "°C" }
+      },
+      consultado_em: new Date().toISOString()
+    });
 
-        // Com o ID na mão, busco a previsão atualizada
-        const { data: climaData } = await axios.get(
-            `https://brasilapi.com.br/api/cptec/v1/clima/previsao/${cidadeId}`,
-            { timeout: 10000 }
-        );
-
-        // Formato os dados pra mandar pro frontend de um jeito mais limpo
-        res.status(200).json({
-            nome: climaData.cidade,
-            estado: climaData.estado,
-            atualizado_em: climaData.atualizado_em,
-            clima: {
-                temperatura_min: climaData.clima[0].min,
-                temperatura_max: climaData.clima[0].max,
-                condicao: climaData.clima[0].condicao_desc,
-                unidades: { temperatura: "Celsius" }
-            }
-        });
-
-    } catch (error: any) {
-        // Tratamento se a cidade não existir
-        if (error.message === 'NOT_FOUND' || (error.response && error.response.status === 404)) {
-            return res.status(404).json({
-                erro: true,
-                codigo: "CIDADE_NAO_ENCONTRADA",
-                mensagem: "A cidade informada não foi localizada na base de dados climáticos"
-            });
-        }
-        // Tratamento genérico se o serviço externo cair ou demorar muito
-        res.status(503).json({
-            erro: true,
-            codigo: "SERVICO_EXTERNO_INDISPONIVEL",
-            mensagem: "Não foi possível obter os dados da BrasilAPI no momento"
-        });
-    }
+  } catch (error) {
+    res.status(503).json({ 
+      erro: true, 
+      codigo: "SERVICO_EXTERNO_INDISPONIVEL", 
+      mensagem: "Não foi possível obter dados do serviço externo. Tente novamente em alguns instantes",
+      servico: "Open-Meteo"
+    });
+  }
 });
 
-// Endpoint pra listar cidades de um estado (UF)
+// --- ENDPOINT 2: LISTAGEM DE CIDADES (Versão Corrigida) ---
 app.get('/api/v1/cidades/:sigla_uf', async (req: Request, res: Response) => {
-    const { sigla_uf } = req.params;
-    const limite = parseInt(req.query.limite as string) || 10;
+  const sigla_uf = (req.params.sigla_uf as string).toUpperCase();
+  const limite = parseInt(req.query.limite as string) || 10;
 
-    // Validação básica da sigla (sempre 2 letras)
-    if (!sigla_uf || sigla_uf.length !== 2) {
-        return res.status(400).json({
-            erro: true,
-            codigo: "SIGLA_UF_INVALIDA",
-            mensagem: "A sigla do estado deve conter exatamente 2 letras"
-        });
-    }
+  if (!sigla_uf || sigla_uf.length !== 2) {
+    return res.status(400).json({
+      erro: true,
+      codigo: "SIGLA_UF_INVALIDA",
+      mensagem: "A sigla do estado deve conter exatamente 2 letras",
+      sigla_uf_informada: sigla_uf
+    });
+  }
 
-    try {
-        const { data: cidades } = await axios.get(
-            `https://brasilapi.com.br/api/ibge/municipios/v1/${sigla_uf}?providers=dados-abertos-br`,
-            { timeout: 15000 } // 15s aqui porque essa lista costuma ser mais pesada
-        );
+  try {
+    const urlIBGE = `https://brasilapi.com.br/api/ibge/municipios/v1/${sigla_uf}`;
+    
+    const response = await axios.get(urlIBGE, { timeout: 10000 });
+    const cidades = response.data;
 
-        // Garantindo que o limite seja entre 1 e 100
-        const limiteReal = Math.min(Math.max(limite, 1), 100);
-        const cidadesFiltradas = cidades.slice(0, limiteReal).map((c: any) => ({ nome: c.nome }));
+    const limiteReal = Math.min(Math.max(limite, 1), 100);
+    const cidadesFiltradas = cidades.slice(0, limiteReal).map((c: any) => ({ 
+      nome: c.nome 
+    }));
 
-        res.status(200).json({
-            uf: String(sigla_uf).toUpperCase(),
-            quantidade_retornada: cidadesFiltradas.length,
-            cidades: cidadesFiltradas,
-            consultado_em: new Date().toISOString()
-        });
-    } catch (error: any) {
-        if (error.response && error.response.status === 404) {
-            return res.status(404).json({
-                erro: true,
-                codigo: "UF_NAO_ENCONTRADA",
-                mensagem: "Estado não encontrado"
-            });
-        }
-        res.status(503).json({
-            erro: true,
-            codigo: "SERVICO_EXTERNO_INDISPONIVEL",
-            mensagem: "Erro ao listar cidades"
-        });
-    }
+    res.status(200).json({
+      uf: sigla_uf,
+      quantidade_retornada: cidadesFiltradas.length,
+      cidades: cidadesFiltradas,
+      consultado_em: new Date().toISOString()
+    });
+
+  } catch (error: any) {
+    res.status(404).json({ 
+      erro: true, 
+      codigo: "UF_NAO_ENCONTRADA", 
+      mensagem: "Estado com a sigla informada não foi encontrado",
+      sigla_uf_informada: sigla_uf 
+    });
+  }
+});
+
+// --- ENDPOINT 3: HEALTH CHECK ---
+app.get('/api/v1/health', async (req: Request, res: Response) => {
+  const versao = "1.0.0";
+  const timestamp = new Date().toISOString();
+
+  try {
+    await axios.get('https://geocoding-api.open-meteo.com/v1/search?name=Fortaleza&count=1', { timeout: 2000 });
+
+    // REQUISITO: Sucesso - HTTP 200 (Healthy)
+    res.status(200).json({
+      status: "healthy",
+      versao: versao,
+      timestamp: timestamp
+    });
+  } catch (error) {
+    // REQUISITO: Serviço degradado - HTTP 200 (Degraded)
+    res.status(200).json({
+      status: "degraded",
+      versao: versao,
+      timestamp: timestamp,
+      motivo: "Serviço externo indisponível"
+    });
+  }
 });
 
 const PORT = 3000;
-
-// Só sobe o servidor se não estiver rodando teste (pra evitar erro de porta ocupada no Jest)
-if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT, () => {
-        console.log(`Rodando em http://localhost:${PORT}`);
-    });
-}
+app.listen(PORT, () => {
+  console.log(`rodando em http://localhost:${PORT}`);
+});
 
 export { app };
