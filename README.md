@@ -72,7 +72,7 @@ Projeto desenvolvido com foco em qualidade de software, incluindo testes que val
     ```
 4.  **Iniciar o servidor:**
     ```bash
-    npm run dev
+    npm start
     ```
 
 ---
