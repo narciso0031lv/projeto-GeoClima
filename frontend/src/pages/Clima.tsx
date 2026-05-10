@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios, { AxiosError } from 'axios';
-import { Sun, CloudRain, MapPin, ArrowLeft, Cloud, Wind, Droplets, Thermometer } from 'lucide-react';
+import { Sun, CloudRain, MapPin, ArrowLeft, Cloud, Wind, Droplets, Thermometer, AlertCircle } from 'lucide-react';
 
-// Interface para garantir tipagem forte (Essencial para ADS)
 interface WeatherData {
   nome: string;
   estado: string;
@@ -11,7 +10,6 @@ interface WeatherData {
     temperatura_min: number;
     temperatura_max: number;
     condicao: string;
-    // Campos opcionais caso o backend já os envie
     sensacao?: number;
     humidade?: number;
     vento?: number;
@@ -21,11 +19,11 @@ interface WeatherData {
 export default function Clima() {
   const { cidade } = useParams<{ cidade: string }>();
   const navigate = useNavigate();
-  
+
   const [dados, setDados] = useState<WeatherData | null>(null);
   const [erro, setErro] = useState('');
   const [carregando, setCarregando] = useState(true);
-  
+
 
   const buscarDados = useCallback(async () => {
     try {
@@ -42,13 +40,13 @@ export default function Clima() {
   }, [cidade]);
 
   useEffect(() => {
-  // Criamos uma função interna para disparar a busca
-  const inicializar = async () => {
-    await buscarDados();
-  };
+    // Criamos uma função interna para disparar a busca
+    const inicializar = async () => {
+      await buscarDados();
+    };
 
-  inicializar();
-}, [buscarDados]);
+    inicializar();
+  }, [buscarDados]);
 
   const obterTemaClima = () => {
     if (!dados) return 'tema-padrao';
@@ -61,36 +59,66 @@ export default function Clima() {
   return (
     <div className={`app-container ${obterTemaClima()}`}>
       <div className="weather-card fade-in">
-        
-        {/* Botão de Voltar Minimalista */}
+
         <button onClick={() => navigate('/')} className="back-link">
           <ArrowLeft size={18} />
-          <span>Voltar para a busca</span>
+          <span>Voltar</span>
         </button>
 
-        {carregando && <div className="loader">Carregando clima...</div>}
+        {carregando && (
+          <div className="weather-details">
+            <header className="location-header">
+              <div className="skeleton-base sk-title"></div>
+            </header>
 
-        {erro && (
-          <div className="error-container">
-            <p>{erro}</p>
-            <button onClick={() => navigate('/')}>Tentar outra cidade</button>
+            <section className="main-info">
+              <div className="skeleton-base sk-icon"></div>
+              <div className="temp-main">
+                <div className="skeleton-base sk-temp"></div>
+                <div className="skeleton-base sk-text" style={{ marginTop: '10px' }}></div>
+              </div>
+            </section>
+
+            <footer className="details-grid">
+              <div className="skeleton-base sk-item"></div>
+              <div className="skeleton-base sk-item"></div>
+              <div className="skeleton-base sk-item"></div>
+              <div className="skeleton-base sk-item"></div>
+            </footer>
           </div>
         )}
 
+        {erro && (
+          <div className="error-container">
+            <div className="error-icon">
+              <AlertCircle size={48} strokeWidth={1.5} />
+            </div>
+
+            <p className="error-message">
+              {erro === 'Cidade não encontrada ou erro no servidor'
+                ? 'Ops! Não conseguimos encontrar essa cidade.'
+                : erro}
+            </p>
+
+            <button onClick={() => navigate('/')} className="btn-retry">
+              Tentar outra cidade
+            </button>
+          </div>
+        )}
         {dados && !carregando && (
           <div className="weather-details">
             <header className="location-header">
               <MapPin size={20} />
               <h1>{dados.nome}, {dados.estado}</h1>
             </header>
-            
+
             <section className="main-info">
               <div className="weather-icon-large">
-                {dados.clima.condicao.toLowerCase().includes('chuva') ? 
-                  <CloudRain size={100} /> : 
+                {dados.clima.condicao.toLowerCase().includes('chuva') ?
+                  <CloudRain size={100} /> :
                   dados.clima.condicao.toLowerCase().includes('nublado') ?
-                  <Cloud size={100} /> :
-                  <Sun size={100} />
+                    <Cloud size={100} /> :
+                    <Sun size={100} />
                 }
               </div>
               <div className="temp-main">
@@ -115,7 +143,7 @@ export default function Clima() {
                   <p className="value">{dados.clima.temperatura_max}°C</p>
                 </div>
               </div>
-              
+
               {/* Exibe Humidade e Vento se existirem no retorno da API */}
               {dados.clima.humidade && (
                 <div className="detail-item">
@@ -126,7 +154,7 @@ export default function Clima() {
                   </div>
                 </div>
               )}
-              
+
               {dados.clima.vento && (
                 <div className="detail-item">
                   <Wind size={18} />
