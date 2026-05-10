@@ -40,7 +40,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* Grade de Cidades Rápidas */}
         <section className="suggestions-section">
           <h2>Cidades Populares</h2>
           <div className="cities-grid">

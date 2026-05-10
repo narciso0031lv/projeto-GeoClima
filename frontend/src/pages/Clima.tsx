@@ -26,21 +26,46 @@ export default function Clima() {
 
 
   const buscarDados = useCallback(async () => {
+    const CACHE_KEY = `clima_${cidade}`;
+    const CACHE_TIME = 10 * 60 * 1000; 
+
     try {
       setCarregando(true);
+
+      // 1. Verificar se existe cache válido
+      const cacheSalvo = localStorage.getItem(CACHE_KEY);
+      if (cacheSalvo) {
+        const { data, timestamp } = JSON.parse(cacheSalvo);
+        const isValido = Date.now() - timestamp < CACHE_TIME;
+
+        if (isValido) {
+          setDados(data);
+          setCarregando(false);
+          return; // Retorna cedo, sem fazer o fetch
+        }
+      }
+
+      // 2. Se não houver cache ou estiver expirado, faz a requisição
       const response = await axios.get(`http://localhost:3000/api/v1/clima/${cidade}`);
+
+      // 3. Salva no cache com o timestamp atual
+      const objetoCache = {
+        data: response.data,
+        timestamp: Date.now()
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(objetoCache));
+
       setDados(response.data);
       setErro('');
     } catch (err) {
       const axiosError = err as AxiosError<{ mensagem: string }>;
-      setErro(axiosError.response?.data?.mensagem || 'Cidade não encontrada ou erro no servidor');
+      setErro(axiosError.response?.data?.mensagem || 'Erro ao buscar dados');
     } finally {
       setCarregando(false);
     }
   }, [cidade]);
 
   useEffect(() => {
-    // Criamos uma função interna para disparar a busca
     const inicializar = async () => {
       await buscarDados();
     };
@@ -127,7 +152,6 @@ export default function Clima() {
               </div>
             </section>
 
-            {/* Grid de Detalhes Adicionais (O que você sugeriu) */}
             <footer className="details-grid">
               <div className="detail-item">
                 <Thermometer size={18} />
@@ -144,7 +168,6 @@ export default function Clima() {
                 </div>
               </div>
 
-              {/* Exibe Humidade e Vento se existirem no retorno da API */}
               {dados.clima.humidade && (
                 <div className="detail-item">
                   <Droplets size={18} />
